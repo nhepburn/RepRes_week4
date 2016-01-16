@@ -1,0 +1,63 @@
+---
+title: "Weather Events and Human Health"
+author: "Neil Hepburn"
+date: "January 15, 2016"
+output: html_document
+---
+# NOTES
+
+- Need to figure out how to clean up EVTYPE - there are several different entries for the same type of event but with different spellings etc.
+
+# Synopsis
+
+# Data Processing
+
+```{r, echo=TRUE, message=FALSE, cache=TRUE}
+
+# check for existence of data source file in working directory
+if(!file.exists("stormdata.csv.bz2")){download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2","stormdata.csv.bz2")}
+
+# determine if the data file needs to be read in or if a data.frame exists within the workspace already.
+if(!exists("stormdata")){
+      stormdata <- read.csv("stormdata.csv.bz2",header = TRUE)
+}
+
+
+# identify the data
+names(stormdata)
+
+# create properly formatted begin dates and then year
+stormdata$BGN_DATE <- as.Date(as.character(stormdata$BGN_DATE),"%m/%d/%Y")
+stormdata$year <- as.numeric(format(stormdata$BGN_DATE,"%Y"))
+```
+
+Producing a summary table of the variable 'EVTYPE' immediately indicates a serious problem. Many of the event types show up in multiple forms. For example, events dealing with thunderstorms and wind show up as three different event types with three different (mis)spellings: THUDERSTORM WINDS, THUNDEERSTORM WINDS, and THUNDERSTORM WINDS. Clearly, extensive data cleansing is needed. In addition, there are some summary entries in the data that could skew other results so these will need to be removed.
+
+
+# Results
+
+## Event Types and Population Health 
+
+The variable 'EVTYPE' indicates the type of weather event. Is there a difference in the human costs related to different weather events? 
+
+```{r,echo=TRUE,message=FALSE}
+library(dplyr)
+evtype.totals <- stormdata %>%
+      group_by(EVTYPE,year) %>%
+      summarise(deaths=sum(FATALITIES),injuries=sum(INJURIES))
+
+maxinjuries <- evtype.totals[evtype.totals$injuries==max(evtype.totals$injuries,na.rm=TRUE),c("EVTYPE","year","injuries")]
+maxfatalities <- evtype.totals[evtype.totals$deaths==max(evtype.totals$deaths,na.rm=TRUE),c("EVTYPE","year","deaths")]
+```
+In terms of fatalities, the worst event type was `r tolower(maxfatalities$EVTYPE)` in `r maxfatalities$year` with a total of `r maxfatalities$deaths` deaths. In terms of injuries, the worst event type was `r tolower(maxinjuries$EVTYPE)` in `r maxinjuries$year` with a total of `r maxinjuries$injuries` injuries.
+
+```{r,echo=TRUE,message=FALSE}
+evtype.averages <- stormdata %>%
+      group_by(EVTYPE) %>%
+      summarise(avg.injuries=mean(INJURIES),avg.deaths=mean(FATALITIES))
+evtype.averages
+```
+Over the entire time period in the data set, the average 
+
+## Economic Consequences
+
