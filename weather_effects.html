@@ -102,6 +102,18 @@ names(stormdata)</code></pre>
 stormdata$BGN_DATE &lt;- as.Date(as.character(stormdata$BGN_DATE),&quot;%m/%d/%Y&quot;)
 stormdata$year &lt;- as.numeric(format(stormdata$BGN_DATE,&quot;%Y&quot;))</code></pre>
 <p>Producing a summary table of the variable ‘EVTYPE’ immediately indicates a serious problem. Many of the event types show up in multiple forms. For example, events dealing with thunderstorms and wind show up as three different event types with three different (mis)spellings: THUDERSTORM WINDS, THUNDEERSTORM WINDS, and THUNDERSTORM WINDS. Clearly, extensive data cleansing is needed. In addition, there are some summary entries in the data that could skew other results so these will need to be removed.</p>
+<p>The first step in dealing with this is removing all of the summaries that are included in the data set. Next, a table of the official weather categories was created from documentation from NOAA and the stringdist package was used to clean up the EVTYPE variable and deal with the spelling errors in the EVTYPE variable.</p>
+<pre class="r"><code># first eliminate the rows with &quot;summary&quot; in EVTYPE
+stormdata$EVTYPE &lt;- toupper(stormdata$EVTYPE)
+stormdata &lt;-subset(stormdata,!grepl(&quot;SUMMARY&quot;,stormdata$EVTYPE))
+
+# read in the categories from an externally generated file.
+categories &lt;- read.csv(&quot;categories.csv&quot;)
+categories$EventName&lt;-toupper(categories$EventName)
+
+# now use amatch() to clean up misspelled event types.
+library(stringdist)
+stormdata$EVTYPE.cor &lt;- categories[amatch(stormdata$EVTYPE,categories$EventName,method=&quot;soundex&quot;,maxDist = 100),&quot;EventName&quot;]</code></pre>
 </div>
 <div id="results" class="section level1">
 <h1>Results</h1>
@@ -110,30 +122,30 @@ stormdata$year &lt;- as.numeric(format(stormdata$BGN_DATE,&quot;%Y&quot;))</code
 <p>The variable ‘EVTYPE’ indicates the type of weather event. Is there a difference in the human costs related to different weather events?</p>
 <pre class="r"><code>library(dplyr)
 evtype.totals &lt;- stormdata %&gt;%
-      group_by(EVTYPE,year) %&gt;%
-      summarise(deaths=sum(FATALITIES),injuries=sum(INJURIES))
+      group_by(EVTYPE.cor,year) %&gt;%
+      summarise(deaths=sum(FATALITIES,na.rm=TRUE),injuries=sum(INJURIES,na.rm=TRUE))
 
-maxinjuries &lt;- evtype.totals[evtype.totals$injuries==max(evtype.totals$injuries,na.rm=TRUE),c(&quot;EVTYPE&quot;,&quot;year&quot;,&quot;injuries&quot;)]
-maxfatalities &lt;- evtype.totals[evtype.totals$deaths==max(evtype.totals$deaths,na.rm=TRUE),c(&quot;EVTYPE&quot;,&quot;year&quot;,&quot;deaths&quot;)]</code></pre>
+maxinjuries &lt;- evtype.totals[evtype.totals$injuries==max(evtype.totals$injuries,na.rm=TRUE),c(&quot;EVTYPE.cor&quot;,&quot;year&quot;,&quot;injuries&quot;)]
+maxfatalities &lt;- evtype.totals[evtype.totals$deaths==max(evtype.totals$deaths,na.rm=TRUE),c(&quot;EVTYPE.cor&quot;,&quot;year&quot;,&quot;deaths&quot;)]</code></pre>
 <p>In terms of fatalities, the worst event type was heat in 1995 with a total of 687 deaths. In terms of injuries, the worst event type was tornado in 1974 with a total of 6824 injuries.</p>
 <pre class="r"><code>evtype.averages &lt;- stormdata %&gt;%
-      group_by(EVTYPE) %&gt;%
-      summarise(avg.injuries=mean(INJURIES),avg.deaths=mean(FATALITIES))
+      group_by(EVTYPE.cor) %&gt;%
+      summarise(avg.injuries=mean(INJURIES,na.rm=TRUE),avg.deaths=mean(FATALITIES,na.rm=TRUE))
 evtype.averages</code></pre>
-<pre><code>## Source: local data frame [985 x 3]
+<pre><code>## Source: local data frame [44 x 3]
 ## 
-##                   EVTYPE avg.injuries avg.deaths
-## 1     HIGH SURF ADVISORY            0          0
-## 2          COASTAL FLOOD            0          0
-## 3            FLASH FLOOD            0          0
-## 4              LIGHTNING            0          0
-## 5              TSTM WIND            0          0
-## 6        TSTM WIND (G45)            0          0
-## 7             WATERSPOUT            0          0
-## 8                   WIND            0          0
-## 9                      ?            0          0
-## 10       ABNORMAL WARMTH            0          0
-## ..                   ...          ...        ...</code></pre>
+##                EVTYPE.cor avg.injuries   avg.deaths
+## 1  ASTRONOMICAL LOW TIDE   0.000000000 0.0000000000
+## 2              AVALANCHE   0.439276486 0.5813953488
+## 3               BLIZZARD   0.295087977 0.0370234604
+## 4          COASTAL FLOOD   0.010440835 0.0116009281
+## 5        COLD/WIND CHILL   0.021390374 0.1996434938
+## 6              DENSE FOG   0.264501160 0.0139211137
+## 7            DENSE SMOKE   0.000000000 0.0000000000
+## 8                DROUGHT   0.001598721 0.0007993605
+## 9             DUST DEVIL   0.284768212 0.0132450331
+## 10            DUST STORM   1.025641026 0.0512820513
+## ..                    ...          ...          ...</code></pre>
 <p>Over the entire time period in the data set, the average</p>
 </div>
 <div id="economic-consequences" class="section level2">

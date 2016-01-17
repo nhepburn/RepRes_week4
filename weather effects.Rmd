@@ -33,6 +33,32 @@ stormdata$year <- as.numeric(format(stormdata$BGN_DATE,"%Y"))
 
 Producing a summary table of the variable 'EVTYPE' immediately indicates a serious problem. Many of the event types show up in multiple forms. For example, events dealing with thunderstorms and wind show up as three different event types with three different (mis)spellings: THUDERSTORM WINDS, THUNDEERSTORM WINDS, and THUNDERSTORM WINDS. Clearly, extensive data cleansing is needed. In addition, there are some summary entries in the data that could skew other results so these will need to be removed.
 
+The first step in dealing with this is removing all of the summaries that are included in the data set. Next, a table of the official weather categories was created from documentation from NOAA and the stringdist package was used to clean up the EVTYPE variable and deal with the spelling errors in the EVTYPE variable. One event type that occurs in the original data set but appears to have no similar category in the official NOAA definitions is "TSTM". After an internet search, I have discovered that this event is marine thunderstorm wind event.
+
+```{r,echo=TRUE,message=TRUE}
+
+# first eliminate the rows with "summary" in EVTYPE
+stormdata$EVTYPE <- toupper(stormdata$EVTYPE)
+stormdata <-subset(stormdata,!grepl("SUMMARY",stormdata$EVTYPE))
+
+# replace the TSTM with MARINE THUNDERSTORM so that it can be matched with amatch()
+stormdata$EVTYPE<-gsub("TSTM","MARINE THUNDERSTORM",stormdata$EVTYPE)
+
+# read in the categories from an externally generated file.
+categories <- read.csv("categories.csv")
+categories$EventName<-toupper(categories$EventName)
+
+# now use amatch() to clean up misspelled event types.
+library(stringdist)
+stormdata$EVTYPE.cor <- categories[amatch(stormdata$EVTYPE,categories$EventName,method="soundex",maxDist = 120),"EventName"]
+```
+
+Another problem that arises is that in the dataset provided, there is a category called "landslide". However, this does not correspond to any such category in the NOAA list of categories. There are a couple of ways to treat this category. One possibility is to assume that each landslide was caused by heavy rain and recode them as heavy rain. The other possibility is to treat landslides as a distinct category. Due to the policy implications insofar as planning and public policy is concerned, I am treating landslides as a separate category, albeit one not in the official NOAA list of weather events.
+
+```{r,echo=TRUE,message=FALSE}
+stormdata$EVTYPE.cor[grepl("LANDSLIDE",stormdata$EVTYPE)]<-"LANDSLIDE"
+```
+
 
 # Results
 
@@ -43,18 +69,19 @@ The variable 'EVTYPE' indicates the type of weather event. Is there a difference
 ```{r,echo=TRUE,message=FALSE}
 library(dplyr)
 evtype.totals <- stormdata %>%
-      group_by(EVTYPE,year) %>%
-      summarise(deaths=sum(FATALITIES),injuries=sum(INJURIES))
+      group_by(EVTYPE.cor,year) %>%
+      summarise(deaths=sum(FATALITIES,na.rm=TRUE),injuries=sum(INJURIES,na.rm=TRUE))
 
-maxinjuries <- evtype.totals[evtype.totals$injuries==max(evtype.totals$injuries,na.rm=TRUE),c("EVTYPE","year","injuries")]
-maxfatalities <- evtype.totals[evtype.totals$deaths==max(evtype.totals$deaths,na.rm=TRUE),c("EVTYPE","year","deaths")]
+maxinjuries <- evtype.totals[evtype.totals$injuries==max(evtype.totals$injuries),c("EVTYPE.cor","year","injuries")]
+maxfatalities <- evtype.totals[evtype.totals$deaths==max(evtype.totals$deaths),c("EVTYPE.cor","year","deaths")]
 ```
-In terms of fatalities, the worst event type was `r tolower(maxfatalities$EVTYPE)` in `r maxfatalities$year` with a total of `r maxfatalities$deaths` deaths. In terms of injuries, the worst event type was `r tolower(maxinjuries$EVTYPE)` in `r maxinjuries$year` with a total of `r maxinjuries$injuries` injuries.
+In terms of fatalities, the worst event type was `r tolower(maxfatalities$EVTYPE.cor)` in `r maxfatalities$year` with a total of `r maxfatalities$deaths` deaths. In terms of injuries, the worst event type was `r tolower(maxinjuries$EVTYPE.cor)` in `r maxinjuries$year` with a total of `r maxinjuries$injuries` injuries.
 
 ```{r,echo=TRUE,message=FALSE}
+stormdata <- subset(stormdata,!is.na(stormdata$EVTYPE.cor))
 evtype.averages <- stormdata %>%
-      group_by(EVTYPE) %>%
-      summarise(avg.injuries=mean(INJURIES),avg.deaths=mean(FATALITIES))
+      group_by(EVTYPE.cor) %>%
+      summarise(avg.injuries=mean(INJURIES,na.rm=TRUE),avg.deaths=mean(FATALITIES,na.rm=TRUE))
 evtype.averages
 ```
 Over the entire time period in the data set, the average 
