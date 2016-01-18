@@ -59,6 +59,31 @@ Another problem that arises is that in the dataset provided, there is a category
 stormdata$EVTYPE.cor[grepl("LANDSLIDE",stormdata$EVTYPE)]<-"LANDSLIDE"
 ```
 
+## Adjusting Monetary Values for Inflation
+
+The dollar figures for damages are reported in current values. To make any sense of these numbers over time we need to convert them to real (inflation adjusted) values. To do this, CPI figures have been retrieved from the Bureau of Labour Statistics and are used for the conversion. The data was retrieved from the Federal Reserve Bank of St. Louis (https://research.stlouisfed.org/fred2/series/CPIAUCSL/downloaddata). The basic formula for this conversion is 
+\[
+\text{Real Value}=\frac{\text{Nominal Value}}{\text{Price Level}}\times 100
+\]
+```{r,inflation_adjustment,echo=TRUE,message=FALSE}
+
+# read in the CPI data. Series information is contained in the first 53 rows of the spreadsheet
+library(xlsx)
+cpiData <- read.xlsx("CPIAUCSL.xls",sheetIndex = 1,startRow =54)
+
+# determine the year for each monthly observaton
+cpiData$year <- substr(cpiData$DATE,0,4)
+
+# annualize cpi figures by averaging over monthly observations for each year
+library(dplyr)
+cpiAnnual <- cpiData %>%
+      group_by(year) %>%
+      summarise(cpi=mean(VALUE))
+
+# restrict cpi data to time frame of storm data
+cpiAnnual <- subset(cpiAnnual,cpiAnnual$year %in% 1950:2011)
+```
+
 
 # Results
 
@@ -67,7 +92,6 @@ stormdata$EVTYPE.cor[grepl("LANDSLIDE",stormdata$EVTYPE)]<-"LANDSLIDE"
 The variable 'EVTYPE' indicates the type of weather event. Is there a difference in the human costs related to different weather events? 
 
 ```{r,echo=TRUE,message=FALSE}
-library(dplyr)
 evtype.totals <- stormdata %>%
       group_by(EVTYPE.cor,year) %>%
       summarise(deaths=sum(FATALITIES,na.rm=TRUE),injuries=sum(INJURIES,na.rm=TRUE))

@@ -102,10 +102,13 @@ names(stormdata)</code></pre>
 stormdata$BGN_DATE &lt;- as.Date(as.character(stormdata$BGN_DATE),&quot;%m/%d/%Y&quot;)
 stormdata$year &lt;- as.numeric(format(stormdata$BGN_DATE,&quot;%Y&quot;))</code></pre>
 <p>Producing a summary table of the variable ‘EVTYPE’ immediately indicates a serious problem. Many of the event types show up in multiple forms. For example, events dealing with thunderstorms and wind show up as three different event types with three different (mis)spellings: THUDERSTORM WINDS, THUNDEERSTORM WINDS, and THUNDERSTORM WINDS. Clearly, extensive data cleansing is needed. In addition, there are some summary entries in the data that could skew other results so these will need to be removed.</p>
-<p>The first step in dealing with this is removing all of the summaries that are included in the data set. Next, a table of the official weather categories was created from documentation from NOAA and the stringdist package was used to clean up the EVTYPE variable and deal with the spelling errors in the EVTYPE variable.</p>
+<p>The first step in dealing with this is removing all of the summaries that are included in the data set. Next, a table of the official weather categories was created from documentation from NOAA and the stringdist package was used to clean up the EVTYPE variable and deal with the spelling errors in the EVTYPE variable. One event type that occurs in the original data set but appears to have no similar category in the official NOAA definitions is “TSTM”. After an internet search, I have discovered that this event is marine thunderstorm wind event.</p>
 <pre class="r"><code># first eliminate the rows with &quot;summary&quot; in EVTYPE
 stormdata$EVTYPE &lt;- toupper(stormdata$EVTYPE)
 stormdata &lt;-subset(stormdata,!grepl(&quot;SUMMARY&quot;,stormdata$EVTYPE))
+
+# replace the TSTM with MARINE THUNDERSTORM so that it can be matched with amatch()
+stormdata$EVTYPE&lt;-gsub(&quot;TSTM&quot;,&quot;MARINE THUNDERSTORM&quot;,stormdata$EVTYPE)
 
 # read in the categories from an externally generated file.
 categories &lt;- read.csv(&quot;categories.csv&quot;)
@@ -113,22 +116,45 @@ categories$EventName&lt;-toupper(categories$EventName)
 
 # now use amatch() to clean up misspelled event types.
 library(stringdist)
-stormdata$EVTYPE.cor &lt;- categories[amatch(stormdata$EVTYPE,categories$EventName,method=&quot;soundex&quot;,maxDist = 100),&quot;EventName&quot;]</code></pre>
+stormdata$EVTYPE.cor &lt;- categories[amatch(stormdata$EVTYPE,categories$EventName,method=&quot;soundex&quot;,maxDist = 120),&quot;EventName&quot;]</code></pre>
+<p>Another problem that arises is that in the dataset provided, there is a category called “landslide”. However, this does not correspond to any such category in the NOAA list of categories. There are a couple of ways to treat this category. One possibility is to assume that each landslide was caused by heavy rain and recode them as heavy rain. The other possibility is to treat landslides as a distinct category. Due to the policy implications insofar as planning and public policy is concerned, I am treating landslides as a separate category, albeit one not in the official NOAA list of weather events.</p>
+<pre class="r"><code>stormdata$EVTYPE.cor[grepl(&quot;LANDSLIDE&quot;,stormdata$EVTYPE)]&lt;-&quot;LANDSLIDE&quot;</code></pre>
+<div id="adjusting-monetary-values-for-inflation" class="section level2">
+<h2>Adjusting Monetary Values for Inflation</h2>
+<p>The dollar figures for damages are reported in current values. To make any sense of these numbers over time we need to convert them to real (inflation adjusted) values. To do this, CPI figures have been retrieved from the Bureau of Labour Statistics and are used for the conversion. The data was retrieved from the Federal Reserve Bank of St. Louis (<a href="https://research.stlouisfed.org/fred2/series/CPIAUCSL/downloaddata" class="uri">https://research.stlouisfed.org/fred2/series/CPIAUCSL/downloaddata</a>). The basic formula for this conversion is <span class="math">\[
+\text{Real Value}=\frac{\text{Nominal Value}}{\text{Price Level}}\times 100
+\]</span></p>
+<pre class="r"><code># read in the CPI data. Series information is contained in the first 53 rows of the spreadsheet
+library(xlsx)
+cpiData &lt;- read.xlsx(&quot;CPIAUCSL.xls&quot;,sheetIndex = 1,startRow =54)
+
+# determine the year for each monthly observaton
+cpiData$year &lt;- substr(cpiData$DATE,0,4)
+
+# annualize cpi figures by averaging over monthly observations for each year
+library(dplyr)
+cpiAnnual &lt;- cpiData %&gt;%
+      group_by(year) %&gt;%
+      summarise(cpi=mean(VALUE))
+
+# restrict cpi data to time frame of storm data
+cpiAnnual &lt;- subset(cpiAnnual,cpiAnnual$year %in% 1950:2011)</code></pre>
+</div>
 </div>
 <div id="results" class="section level1">
 <h1>Results</h1>
 <div id="event-types-and-population-health" class="section level2">
 <h2>Event Types and Population Health</h2>
 <p>The variable ‘EVTYPE’ indicates the type of weather event. Is there a difference in the human costs related to different weather events?</p>
-<pre class="r"><code>library(dplyr)
-evtype.totals &lt;- stormdata %&gt;%
+<pre class="r"><code>evtype.totals &lt;- stormdata %&gt;%
       group_by(EVTYPE.cor,year) %&gt;%
       summarise(deaths=sum(FATALITIES,na.rm=TRUE),injuries=sum(INJURIES,na.rm=TRUE))
 
-maxinjuries &lt;- evtype.totals[evtype.totals$injuries==max(evtype.totals$injuries,na.rm=TRUE),c(&quot;EVTYPE.cor&quot;,&quot;year&quot;,&quot;injuries&quot;)]
-maxfatalities &lt;- evtype.totals[evtype.totals$deaths==max(evtype.totals$deaths,na.rm=TRUE),c(&quot;EVTYPE.cor&quot;,&quot;year&quot;,&quot;deaths&quot;)]</code></pre>
+maxinjuries &lt;- evtype.totals[evtype.totals$injuries==max(evtype.totals$injuries),c(&quot;EVTYPE.cor&quot;,&quot;year&quot;,&quot;injuries&quot;)]
+maxfatalities &lt;- evtype.totals[evtype.totals$deaths==max(evtype.totals$deaths),c(&quot;EVTYPE.cor&quot;,&quot;year&quot;,&quot;deaths&quot;)]</code></pre>
 <p>In terms of fatalities, the worst event type was heat in 1995 with a total of 687 deaths. In terms of injuries, the worst event type was tornado in 1974 with a total of 6824 injuries.</p>
-<pre class="r"><code>evtype.averages &lt;- stormdata %&gt;%
+<pre class="r"><code>stormdata &lt;- subset(stormdata,!is.na(stormdata$EVTYPE.cor))
+evtype.averages &lt;- stormdata %&gt;%
       group_by(EVTYPE.cor) %&gt;%
       summarise(avg.injuries=mean(INJURIES,na.rm=TRUE),avg.deaths=mean(FATALITIES,na.rm=TRUE))
 evtype.averages</code></pre>
