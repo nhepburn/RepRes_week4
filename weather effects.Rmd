@@ -4,9 +4,6 @@ author: "Neil Hepburn"
 date: "January 15, 2016"
 output: html_document
 ---
-# NOTES
-
-- Need to figure out how to clean up EVTYPE - there are several different entries for the same type of event but with different spellings etc.
 
 # Synopsis
 
