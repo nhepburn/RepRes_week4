@@ -4,7 +4,9 @@ author: "Neil Hepburn"
 date: "January 15, 2016"
 output: html_document
 ---
+# Notes
 
+- To clean up the explanatory codes for crop damage and property damage, begin by loading Hmisc and then use %nin% to drop observations with weird codes. Next, c
 # Synopsis
 
 # Data Processing
@@ -58,7 +60,7 @@ stormdata$EVTYPE.cor[grepl("LANDSLIDE",stormdata$EVTYPE)]<-"LANDSLIDE"
 
 ## Adjusting Monetary Values for Inflation
 
-The dollar figures for damages are reported in current values. To make any sense of these numbers over time we need to convert them to real (inflation adjusted) values. To do this, CPI figures have been retrieved from the Bureau of Labour Statistics and are used for the conversion. The data was retrieved from the Federal Reserve Bank of St. Louis (https://research.stlouisfed.org/fred2/series/CPIAUCSL/downloaddata). The basic formula for this conversion is 
+The dollar figures for damages are reported in current values. To make any sense of these numbers over time we need to convert them to real (inflation adjusted) values. To do this, CPI figures have been retrieved from the Bureau of Labour Statistics and are used for the conversion. The data was retrieved from the Federal Reserve Bank of St. Louis (https://research.stlouisfed.org/fred2/series/GDPDEF/downloaddata.). The basic formula for this conversion is 
 \[
 \text{Real Value}=\frac{\text{Nominal Value}}{\text{Price Level}}\times 100
 \]
@@ -66,19 +68,30 @@ The dollar figures for damages are reported in current values. To make any sense
 
 # read in the CPI data. Series information is contained in the first 53 rows of the spreadsheet
 library(xlsx)
-cpiData <- read.xlsx("CPIAUCSL.xls",sheetIndex = 1,startRow =54)
+PriceLevel <- read.xlsx("GDPDEF.xls",sheetIndex = 1,startRow =17)
 
-# determine the year for each monthly observaton
-cpiData$year <- substr(cpiData$DATE,0,4)
+# Pull out the year to use for matching with storm data
+PriceLevel$year <- substr(PriceLevel$DATE,0,4)
 
-# annualize cpi figures by averaging over monthly observations for each year
-library(dplyr)
-cpiAnnual <- cpiData %>%
-      group_by(year) %>%
-      summarise(cpi=mean(VALUE))
+# restrict PriceLevel data to time frame of storm data
+PriceLevel <- subset(PriceLevel,PriceLevel$year %in% 1950:2011)
+pricelevel <- PriceLevel$VALUE
+names(pricelevel) <- PriceLevel$year
 
-# restrict cpi data to time frame of storm data
-cpiAnnual <- subset(cpiAnnual,cpiAnnual$year %in% 1950:2011)
+# now add price level data to stormdata table
+stormdata$pricelevel <- pricelevel[as.character(stormdata$year)]
+stormdata$PROPDMG.real <- with(stormdata,100*PROPDMG/pricelevel)
+stormdata$CROPDMG.real <- with(stormdata,100*CROPDMG/pricelevel)
+```
+
+
+## PROPDMGexp and CROPDMGexp
+
+These two variables have some significant coding problems. They should take on values of K (1000s), M (millions) or B (billions). However, there are several other codes for which no sensible interpretation can be made. These will be dropped from the dataset.
+```{r,echo=TRUE,message=FALSE}
+
+# need to address problems with incorrectly coded PROPDMGexp and CROPDMGexp. 
+stormdata <- subset(stormdata, stormdata$PROPDMGEXP %nin% c("-","?","+"))
 ```
 
 
