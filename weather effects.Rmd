@@ -7,6 +7,7 @@ output: html_document
 # Notes
 
 - To clean up the explanatory codes for crop damage and property damage, begin by loading Hmisc and then use %nin% to drop observations with weird codes. Next, c
+
 # Synopsis
 
 # Data Processing
