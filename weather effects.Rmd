@@ -56,7 +56,7 @@ stormdata$EVTYPE.cor <- categories[amatch(stormdata$EVTYPE,categories$EventName,
 Another problem that arises is that in the dataset provided, there is a category called "landslide". However, this does not correspond to any such category in the NOAA list of categories. There are a couple of ways to treat this category. One possibility is to assume that each landslide was caused by heavy rain and recode them as heavy rain. The other possibility is to treat landslides as a distinct category. Due to the policy implications insofar as planning and public policy is concerned, I am treating landslides as a separate category, albeit one not in the official NOAA list of weather events.
 
 ```{r,echo=TRUE,message=FALSE}
-stormdata$EVTYPE.cor[grepl("LANDSLIDE",stormdata$EVTYPE)]<-"LANDSLIDE"
+stormdata$EVTYPE.cor[stormdata$EVTYPE=="LANDSLIDE"]<-"LANDSLIDE"
 ```
 
 ## Adjusting Monetary Values for Inflation
@@ -127,6 +127,14 @@ evtype.averages <- stormdata %>%
 evtype.averages
 ```
 Over the entire time period in the data set, the average 
+
+Maximum fatalities occurred in 1995.
+```{r,echo=TRUE,message=FALSE}
+stormdata[stormdata$FATALITIES==max(stormdata$FATALITIES),c("year","EVTYPE.cor","FATALITIES")]
+stormdata[stormdata$INJURIES==max(stormdata$INJURIES),c("year","EVTYPE.cor","INJURIES")]
+```
+
+
 
 ## Economic Consequences
 
