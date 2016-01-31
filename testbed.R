@@ -51,14 +51,26 @@ names(pricelevel) <- PriceLevel$year
 
 
 
-# need to address problems with incorrectly coded PROPDMGexp and CROPDMGexp. 
+# need to address problems with incorrectly coded PROPDMGEXP. 
 
 stormdata <- subset(stormdata, stormdata$PROPDMGEXP %nin% c("-", "?", "+", "0" ,"1" ,"2" ,"3", "4" ,"5", "6" ,"7", "8","h","H"))
 stormdata$PROPDMGEXP[stormdata$PROPDMGEXP=="m"]<-"M"
 stormdata$PROPDMGEXP <- factor(stormdata$PROPDMGEXP)
-multiples <- c(1000,1000000,1000000000)
-names(multiples)<-c("K","M","B")
-stormdata$multiples <- multiples[as.character(stormdata$PROPDMGEXP)]
+stormdata$prop.multiples <- 0
+stormdata$Prop.multiples[stormdata$PROPDMGEXP=="K"]<-1000
+stormdata$prop.multiples[stormdata$PROPDMGEXP=="M"]<-1000000
+stormdata$prop.multiples[stormdata$PROPDMGEXP=="B"]<-1000000000
+
+
+# need to address problems with incorrectly coded CROPDMGEXP. 
+
+stormdata <- subset(stormdata, stormdata$CROPDMGEXP %nin% c("?", "0" ,"2"))
+stormdata$CROPDMGEXP[stormdata$CROPDMGEXP=="m"]<-"M"
+stormdata$CROPDMGEXP <- factor(stormdata$CROPDMGEXP)
+stormdata$crop.multiples <- 0
+stormdata$crop.multiples[stormdata$CROPDMGEXP=="K"]<-1000
+stormdata$crop.multiples[stormdata$CROPDMGEXP=="M"]<-1000000
+stormdata$crop.multiples[stormdata$CROPDMGEXP=="B"]<-1000000000
 
 
 # now add price level data to stormdata table and compute real costs
