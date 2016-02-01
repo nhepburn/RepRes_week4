@@ -46,6 +46,12 @@ PriceLevel$year <- substr(PriceLevel$DATE,0,4)
 
 # restrict PriceLevel data to time frame of storm data
 PriceLevel <- subset(PriceLevel,PriceLevel$year %in% 1950:2011)
+stormdata$pricelevel[stormdata$year==PriceLevel$year,PriceLevel$VALUE]
+
+
+
+stormdata <- left_join(stormdata,PriceLevel,by=)
+
 pricelevel <- PriceLevel$VALUE
 names(pricelevel) <- PriceLevel$year
 
@@ -56,7 +62,7 @@ names(pricelevel) <- PriceLevel$year
 stormdata <- subset(stormdata, stormdata$PROPDMGEXP %nin% c("-", "?", "+", "0" ,"1" ,"2" ,"3", "4" ,"5", "6" ,"7", "8","h","H"))
 stormdata$PROPDMGEXP[stormdata$PROPDMGEXP=="m"]<-"M"
 stormdata$PROPDMGEXP <- factor(stormdata$PROPDMGEXP)
-stormdata$prop.multiples <- 0
+stormdata$prop.multiples <- 
 stormdata$Prop.multiples[stormdata$PROPDMGEXP=="K"]<-1000
 stormdata$prop.multiples[stormdata$PROPDMGEXP=="M"]<-1000000
 stormdata$prop.multiples[stormdata$PROPDMGEXP=="B"]<-1000000000
@@ -67,7 +73,7 @@ stormdata$prop.multiples[stormdata$PROPDMGEXP=="B"]<-1000000000
 stormdata <- subset(stormdata, stormdata$CROPDMGEXP %nin% c("?", "0" ,"2"))
 stormdata$CROPDMGEXP[stormdata$CROPDMGEXP=="m"]<-"M"
 stormdata$CROPDMGEXP <- factor(stormdata$CROPDMGEXP)
-stormdata$crop.multiples <- 0
+stormdata$crop.multiples <- 1
 stormdata$crop.multiples[stormdata$CROPDMGEXP=="K"]<-1000
 stormdata$crop.multiples[stormdata$CROPDMGEXP=="M"]<-1000000
 stormdata$crop.multiples[stormdata$CROPDMGEXP=="B"]<-1000000000
@@ -75,5 +81,5 @@ stormdata$crop.multiples[stormdata$CROPDMGEXP=="B"]<-1000000000
 
 # now add price level data to stormdata table and compute real costs
 stormdata$pricelevel <- pricelevel[as.character(stormdata$year)]
-stormdata$PROPDMG.real <- with(stormdata,multiples*100*PROPDMG/pricelevel)
-stormdata$CROPDMG.real <- with(stormdata,100*CROPDMG/pricelevel)
+stormdata$PROPDMG.real <- with(stormdata,prop.multiples*100*PROPDMG/pricelevel)
+stormdata$CROPDMG.real <- with(stormdata,crop.multiples*100*CROPDMG/pricelevel)

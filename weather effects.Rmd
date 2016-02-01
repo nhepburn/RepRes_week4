@@ -4,17 +4,31 @@ author: "Neil Hepburn"
 date: "January 15, 2016"
 output: html_document
 ---
-# Notes
 
-- To clean up the explanatory codes for crop damage and property damage, begin by loading Hmisc and then use %nin% to drop observations with weird codes. Next, c
 
 # Synopsis
 
+This analysis looks at weather event data from the National Oceanic and Atmospheric Administration (NOAA). The data shows that over time, the patterns of injuries and fatalities has remained relatively constant. However, estimates of crop damage and property damage show signficant increases in monetary costs beginning in the 1990s.
+
 # Data Processing
 
-```{r, echo=TRUE, message=FALSE}
+There are several tasks that need to be done to clean up the data for analysis. Most problematic is the coding of weather events. In addition, the exponent fields for crop damage (CROPDMGEXP) and property damage (PROPDMGEXP) need to be cleaned as they have several nonsense codes. Finally, the cost estimates for property damage and crop damage need to be converted to real values to make comparisons over time meaningful.
 
-# check for existence of data source file in working directory
+## Basic Load and Examination of the Data
+
+```{r,echo=TRUE}
+# load relevant libraries
+library(xlsx)
+library(stringdist)
+library(Hmisc)
+library(dplyr)
+library(ggplot2)
+
+```
+
+
+```{r, echo=TRUE, message=FALSE,cache=TRUE}
+
 if(!file.exists("stormdata.csv.bz2")){download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2","stormdata.csv.bz2")}
 
 # determine if the data file needs to be read in or if a data.frame exists within the workspace already.
@@ -22,20 +36,22 @@ if(!exists("stormdata")){
       stormdata <- read.csv("stormdata.csv.bz2",header = TRUE)
 }
 
-
-# identify the data
-names(stormdata)
-
 # create properly formatted begin dates and then year
 stormdata$BGN_DATE <- as.Date(as.character(stormdata$BGN_DATE),"%m/%d/%Y")
 stormdata$year <- as.numeric(format(stormdata$BGN_DATE,"%Y"))
+
+
 ```
 
-Producing a summary table of the variable 'EVTYPE' immediately indicates a serious problem. Many of the event types show up in multiple forms. For example, events dealing with thunderstorms and wind show up as three different event types with three different (mis)spellings: THUDERSTORM WINDS, THUNDEERSTORM WINDS, and THUNDERSTORM WINDS. Clearly, extensive data cleansing is needed. In addition, there are some summary entries in the data that could skew other results so these will need to be removed.
 
-The first step in dealing with this is removing all of the summaries that are included in the data set. Next, a table of the official weather categories was created from documentation from NOAA and the stringdist package was used to clean up the EVTYPE variable and deal with the spelling errors in the EVTYPE variable. One event type that occurs in the original data set but appears to have no similar category in the official NOAA definitions is "TSTM". After an internet search, I have discovered that this event is marine thunderstorm wind event.
 
-```{r,echo=TRUE,message=TRUE}
+## Problems in EVTYPE
+
+Producing a summary table of the variable 'EVTYPE' immediately indicates a serious problem. (The table is not shown due to its length.) Many of the event types show up in multiple forms. For example, events dealing with thunderstorms and wind show up as three different event types with three different (mis)spellings: THUDERSTORM WINDS, THUNDEERSTORM WINDS, and THUNDERSTORM WINDS. Clearly, extensive data cleansing is needed. In addition, there are some summary entries in the data that could skew other results so these will need to be removed.
+
+The first step in dealing with this is removing all of the summaries that are included in the data set. Next, a table of the official weather categories was created from documentation from NOAA and the stringdist package was used to clean up the EVTYPE variable and deal with the spelling errors in the EVTYPE variable. One event type that occurs in the original data set but does not have a similar category in the official NOAA definitions is "TSTM". After an internet search, I have discovered that this event is marine thunderstorm wind event.
+
+```{r,echo=TRUE,message=TRUE,cache=TRUE}
 
 # first eliminate the rows with "summary" in EVTYPE
 stormdata$EVTYPE <- toupper(stormdata$EVTYPE)
@@ -55,8 +71,35 @@ stormdata$EVTYPE.cor <- categories[amatch(stormdata$EVTYPE,categories$EventName,
 
 Another problem that arises is that in the dataset provided, there is a category called "landslide". However, this does not correspond to any such category in the NOAA list of categories. There are a couple of ways to treat this category. One possibility is to assume that each landslide was caused by heavy rain and recode them as heavy rain. The other possibility is to treat landslides as a distinct category. Due to the policy implications insofar as planning and public policy is concerned, I am treating landslides as a separate category, albeit one not in the official NOAA list of weather events.
 
-```{r,echo=TRUE,message=FALSE}
+```{r,echo=TRUE,message=FALSE,cache=TRUE}
 stormdata$EVTYPE.cor[stormdata$EVTYPE=="LANDSLIDE"]<-"LANDSLIDE"
+```
+
+## PROPDMGEXP and CROPDMGEXP
+
+These two variables have some significant coding problems. They should take on values of K (1000s), M (millions) or B (billions). However, there are several other codes for which no sensible interpretation can be made. These will be dropped from the dataset.
+```{r,echo=TRUE,message=FALSE,cache=TRUE}
+
+# Addressing problems with incorrectly coded PROPDMGEXP. 
+library(Hmisc)
+stormdata <- subset(stormdata, stormdata$PROPDMGEXP %nin% c("-", "?", "+", "0" ,"1" ,"2" ,"3", "4" ,"5", "6" ,"7", "8","h","H"))
+stormdata$PROPDMGEXP[stormdata$PROPDMGEXP=="m"]<-"M"
+stormdata$PROPDMGEXP <- factor(stormdata$PROPDMGEXP)
+stormdata$prop.multiples <- 1
+stormdata$prop.multiples[stormdata$PROPDMGEXP=="K"]<-1000
+stormdata$prop.multiples[stormdata$PROPDMGEXP=="M"]<-1000000
+stormdata$prop.multiples[stormdata$PROPDMGEXP=="B"]<-1000000000
+
+
+# Addressing problems with incorrectly coded CROPDMGEXP. 
+
+stormdata <- subset(stormdata, stormdata$CROPDMGEXP %nin% c("?", "0" ,"2"))
+stormdata$CROPDMGEXP[stormdata$CROPDMGEXP=="m"]<-"M"
+stormdata$CROPDMGEXP <- factor(stormdata$CROPDMGEXP)
+stormdata$crop.multiples <- 1
+stormdata$crop.multiples[stormdata$CROPDMGEXP=="K"]<-1000
+stormdata$crop.multiples[stormdata$CROPDMGEXP=="M"]<-1000000
+stormdata$crop.multiples[stormdata$CROPDMGEXP=="B"]<-1000000000
 ```
 
 ## Adjusting Monetary Values for Inflation
@@ -65,43 +108,23 @@ The dollar figures for damages are reported in current values. To make any sense
 \[
 \text{Real Value}=\frac{\text{Nominal Value}}{\text{Price Level}}\times 100
 \]
-```{r,inflation_adjustment,echo=TRUE,message=FALSE}
+```{r,echo=TRUE,cache=TRUE}
+# read in the GDP Deflator data. Series information is contained in the first 16 rows of the spreadsheet
 
-# read in the CPI data. Series information is contained in the first 53 rows of the spreadsheet
-library(xlsx)
 PriceLevel <- read.xlsx("GDPDEF.xls",sheetIndex = 1,startRow =17)
 
 # Pull out the year to use for matching with storm data
 PriceLevel$year <- substr(PriceLevel$DATE,0,4)
 
-# restrict PriceLevel data to time frame of storm data
-PriceLevel <- subset(PriceLevel,PriceLevel$year %in% 1950:2011)
+# create a vector called price level to match into stormdata
 pricelevel <- PriceLevel$VALUE
 names(pricelevel) <- PriceLevel$year
 
-# now add price level data to stormdata table
+# now add price level data to stormdata table and compute real costs
 stormdata$pricelevel <- pricelevel[as.character(stormdata$year)]
-stormdata$PROPDMG.real <- with(stormdata,100*PROPDMG/pricelevel)
-stormdata$CROPDMG.real <- with(stormdata,100*CROPDMG/pricelevel)
+stormdata$PROPDMG.real <- with(stormdata,prop.multiples*100*PROPDMG/pricelevel)
+stormdata$CROPDMG.real <- with(stormdata,crop.multiples*100*CROPDMG/pricelevel)
 ```
-
-
-## PROPDMGexp and CROPDMGexp
-
-These two variables have some significant coding problems. They should take on values of K (1000s), M (millions) or B (billions). However, there are several other codes for which no sensible interpretation can be made. These will be dropped from the dataset.
-```{r,echo=TRUE,message=FALSE}
-
-# need to address problems with incorrectly coded PROPDMGexp and CROPDMGexp. 
-library(Hmisc)
-stormdata <- subset(stormdata, stormdata$PROPDMGEXP %nin% c("-", "?", "+", "0" ,"1" ,"2" ,"3", "4" ,"5", "6" ,"7", "8","h","H"))
-stormdata$PROPDMGEXP[stormdata$PROPDMGEXP=="m"]<-"M"
-stormdata$PROPDMGEXP <- factor(stormdata$PROPDMGEXP)
-multiples <- c(1000,1000000,1000000000)
-names(multiples)<-c("K","M","B")
-stormdata$multiples <- multiples[as.character(stormdata$PROPDMGEXP)]
-stormdata$PROPDMG.real <- with(stormdata,PROPDMG*100/Pr)
-```
-
 
 # Results
 
@@ -113,28 +136,45 @@ The variable 'EVTYPE' indicates the type of weather event. Is there a difference
 evtype.totals <- stormdata %>%
       group_by(EVTYPE.cor,year) %>%
       summarise(deaths=sum(FATALITIES,na.rm=TRUE),injuries=sum(INJURIES,na.rm=TRUE))
-
+evtype.totals <- arrange(evtype.totals,year)
 maxinjuries <- evtype.totals[evtype.totals$injuries==max(evtype.totals$injuries),c("EVTYPE.cor","year","injuries")]
 maxfatalities <- evtype.totals[evtype.totals$deaths==max(evtype.totals$deaths),c("EVTYPE.cor","year","deaths")]
+maxinjuries
+maxfatalities
 ```
-In terms of fatalities, the worst event type was `r tolower(maxfatalities$EVTYPE.cor)` in `r maxfatalities$year` with a total of `r maxfatalities$deaths` deaths. In terms of injuries, the worst event type was `r tolower(maxinjuries$EVTYPE.cor)` in `r maxinjuries$year` with a total of `r maxinjuries$injuries` injuries.
+In terms of fatalities, the worst event type was `r maxfatalities$EVTYPE.cor` in `r maxfatalities$year` with a total of `r maxfatalities$deaths` deaths. In terms of injuries, the worst event type was `r maxinjuries$EVTYPE.cor` in `r maxinjuries$year` with a total of `r maxinjuries$injuries` injuries.
 
-```{r,echo=TRUE,message=FALSE}
-stormdata <- subset(stormdata,!is.na(stormdata$EVTYPE.cor))
-evtype.averages <- stormdata %>%
-      group_by(EVTYPE.cor) %>%
-      summarise(avg.injuries=mean(INJURIES,na.rm=TRUE),avg.deaths=mean(FATALITIES,na.rm=TRUE))
-evtype.averages
+## Injuries and Fatalities over Time
+
+Has the number of injuries or fatalities changed over time? On the one hand given larger populations it would not be unreasonable to expect injuries and fatalities to increase. However, advances in technology (building codes, etc) along with better forecasting suggest that injuries and fatalities should decrease.
+
+
+```{r, echo=TRUE}
+plot1<-ggplot(evtype.totals,aes(x=year,y=injuries))+geom_line()
+plot1
 ```
-Over the entire time period in the data set, the average 
-
-Maximum fatalities occurred in 1995.
-```{r,echo=TRUE,message=FALSE}
-stormdata[stormdata$FATALITIES==max(stormdata$FATALITIES),c("year","EVTYPE.cor","FATALITIES")]
-stormdata[stormdata$INJURIES==max(stormdata$INJURIES),c("year","EVTYPE.cor","INJURIES")]
+```{r, echo=TRUE}
+plot2<-ggplot(evtype.totals,aes(x=year,y=deaths))+geom_line()
+plot2
 ```
-
-
 
 ## Economic Consequences
+
+How have the economic consequences evolved over time?  The following two plots show a substantial increase in the magnitude of property damage and crop damage costs since the mid 1990s. However, this may be an artifact of changes in record keeping methods.
+```{r, echo=TRUE}
+# compute the average cost for each event type each year both in terms of crop damage and also in terms of property damage
+evtype.cost <- stormdata %>%
+      group_by(EVTYPE.cor,year)%>%
+      summarise(avgprop=mean(PROPDMG.real),avgcrop=mean(CROPDMG.real))
+
+```
+
+```{r,echo=TRUE}
+plot3 <- ggplot(evtype.cost,aes(x=year,y=avgprop))+geom_line()
+plot3
+plot4 <- ggplot(evtype.cost,aes(x=year,y=avgcrop))+geom_line()
+plot4
+
+```
+
 
