@@ -16,7 +16,7 @@ There are several tasks that need to be done to clean up the data for analysis. 
 
 ## Basic Load and Examination of the Data
 
-```{r,echo=TRUE}
+```{r,echo=TRUE,message=FALSE}
 # load relevant libraries
 library(xlsx)
 library(stringdist)
@@ -81,7 +81,6 @@ These two variables have some significant coding problems. They should take on v
 ```{r,echo=TRUE,message=FALSE,cache=TRUE}
 
 # Addressing problems with incorrectly coded PROPDMGEXP. 
-library(Hmisc)
 stormdata <- subset(stormdata, stormdata$PROPDMGEXP %nin% c("-", "?", "+", "0" ,"1" ,"2" ,"3", "4" ,"5", "6" ,"7", "8","h","H"))
 stormdata$PROPDMGEXP[stormdata$PROPDMGEXP=="m"]<-"M"
 stormdata$PROPDMGEXP <- factor(stormdata$PROPDMGEXP)
@@ -130,7 +129,7 @@ stormdata$CROPDMG.real <- with(stormdata,crop.multiples*100*CROPDMG/pricelevel)
 
 ## Event Types and Population Health 
 
-The variable 'EVTYPE' indicates the type of weather event. Is there a difference in the human costs related to different weather events? 
+### Most Significant Storm Events
 
 ```{r,echo=TRUE,message=FALSE}
 evtype.totals <- stormdata %>%
@@ -142,21 +141,11 @@ maxfatalities <- evtype.totals[evtype.totals$deaths==max(evtype.totals$deaths),c
 maxinjuries
 maxfatalities
 ```
-In terms of fatalities, the worst event type was `r maxfatalities$EVTYPE.cor` in `r maxfatalities$year` with a total of `r maxfatalities$deaths` deaths. In terms of injuries, the worst event type was `r maxinjuries$EVTYPE.cor` in `r maxinjuries$year` with a total of `r maxinjuries$injuries` injuries.
+In terms of fatalities, the worst weather event was `r maxfatalities$EVTYPE.cor` in `r maxfatalities$year` with a total of `r maxfatalities$deaths` deaths. In terms of injuries, the worst weather event was `r maxinjuries$EVTYPE.cor` in `r maxinjuries$year` with a total of `r maxinjuries$injuries` injuries.
 
-## Injuries and Fatalities over Time
-
-Has the number of injuries or fatalities changed over time? On the one hand given larger populations it would not be unreasonable to expect injuries and fatalities to increase. However, advances in technology (building codes, etc) along with better forecasting suggest that injuries and fatalities should decrease.
+### Overall Most Dangerous Weather Events
 
 
-```{r, echo=TRUE}
-plot1<-ggplot(evtype.totals,aes(x=year,y=injuries))+geom_line()
-plot1
-```
-```{r, echo=TRUE}
-plot2<-ggplot(evtype.totals,aes(x=year,y=deaths))+geom_line()
-plot2
-```
 
 ## Economic Consequences
 
