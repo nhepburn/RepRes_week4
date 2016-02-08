@@ -151,15 +151,21 @@ In terms of fatalities, the worst weather event was `r maxfatalities$EVTYPE.cor`
 # Then the results need to be sorted and the top 10 or so types pulled out for graphing
 # use a stacked bar chart to show types of storm and human costs?
 
-evtype.injuries.mean <- stormdata %>%
+evtype.injuries.mean <- evtype.totals %>%
   group_by(EVTYPE.cor)%>%
-  summarise(mean.injuries=mean(INJURIES))
+  summarise(mean.injuries=mean(injuries,na.rm=TRUE))
+
+evtype.injuries.mean <- evtype.injuries.mean[order(evtype.injuries.mean$mean.injuries,decreasing = TRUE),]
+evtype.injuries.mean <- evtype.injuries.mean[1:20,]
 
 
-evtype.deaths.mean <- stormdata%>%
+evtype.deaths.mean <- evtype.totals%>%
   group_by(EVTYPE.cor)%>%
-  summarise(mean.deaths=mean(FATALITIES))
+  summarise(mean.deaths=mean(deaths))
 
+evtype.deaths.mean <- evtype.deaths.mean[order(evtype.deaths.mean$mean.deaths,decreasing = TRUE),]
+evtype.deaths.mean <- evtype.deaths.mean[1:20,]
+ggplot(evtype.deaths.mean,aes(x=EVTYPE.cor,y=mean.deaths))+geom_bar(stat="identity")+theme(axis.text.x = element_text(angle = 90, hjust = 1))+xlab("Event Type")+ylab("")
 ```
 
 
