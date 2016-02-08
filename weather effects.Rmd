@@ -128,6 +128,7 @@ stormdata$CROPDMG.real <- with(stormdata,crop.multiples*100*CROPDMG/pricelevel)
 # Results
 
 ## Event Types and Population Health 
+There are a couple of ways to view the issue of population health. First, what were the most significant storms in terms of human health? Second, on average, what are the most dangerous kinds of storms?
 
 ### Most Significant Storm Events
 
@@ -145,6 +146,21 @@ In terms of fatalities, the worst weather event was `r maxfatalities$EVTYPE.cor`
 
 ### Overall Most Dangerous Weather Events
 
+```{r,echo=TRUE,message=FALSE}
+# This code chunk needs to compute the averages for fatalities and injuries by storm event type. 
+# Then the results need to be sorted and the top 10 or so types pulled out for graphing
+# use a stacked bar chart to show types of storm and human costs?
+
+evtype.injuries.mean <- stormdata %>%
+  group_by(EVTYPE.cor)%>%
+  summarise(mean.injuries=mean(INJURIES))
+
+
+evtype.deaths.mean <- stormdata%>%
+  group_by(EVTYPE.cor)%>%
+  summarise(mean.deaths=mean(FATALITIES))
+
+```
 
 
 ## Economic Consequences
